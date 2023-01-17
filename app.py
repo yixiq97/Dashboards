@@ -460,6 +460,8 @@ dailydigest_today_df
 
 
 app = dash.Dash(__name__)
+server = app.server
+
 app.layout = html.Div([
     html.Div([
     html.H1('Congressional Records Daily Briefing'),
