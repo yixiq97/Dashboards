@@ -368,9 +368,10 @@ for i in date_idx_ls:
             wc_i.extend(wc_j)
     date_filtered_wc.append((date_i,wc_i))
         
-date_wcount_filtered_df = pd.DataFrame(date_filtered_wc,columns = ['dateIssued','wordCount_filtered'])
-date_wcount_filtered_df['dateIssued'] = pd.to_datetime(date_wcount_filtered_df['dateIssued'])
-date_wcount_filtered_df = date_wcount_filtered_df.sort_values(by = 'dateIssued',ascending=False) 
+date_wcount_filtered_raw_df = pd.DataFrame(date_filtered_wc,columns = ['dateIssued','wordCount_filtered'])
+date_wcount_filtered_raw_df['dateIssued'] = pd.to_datetime(date_wcount_filtered_raw_df['dateIssued']).dt.date
+date_wcount_filtered_df = date_wcount_filtered_raw_df.sort_values(by = 'dateIssued',ascending=False) 
+date_wcount_filtered_df = date_wcount_filtered_df.reset_index(drop = True)
 
 
 # In[21]:
