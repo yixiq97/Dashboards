@@ -23,20 +23,14 @@ STOPWORDS = nlp.Defaults.stop_words
 stopwords = STOPWORDS # customize (TBD)
 
 
-# In[3]:
-
-
-from dash_holoniq_wordcloud import DashWordcloud
-
-
-# In[4]:
-
+# In[431]:
 
 import dash
 #import dash_core_components as dcc
 #import dash_html_components as html
-from dash import dcc
-from dash import html
+from dash import Dash, dcc, html, Input, Output
+from dash_holoniq_wordcloud import DashWordcloud
+import dash_bootstrap_components as dbc
 
 
 # In[5]:
@@ -98,102 +92,52 @@ def txt_download(granule_json):
     data = requests.get(url)
     raw_text = data.text
     
-    soup = BeautifulSoup(raw_text,features = "html.parser")
+    soup = BeautifulSoup(raw_text)
     text_body = soup.find('body').get_text()
     return text_body
 
 
-# ### Endpoints (TBD)
-
-# In[10]:
-
-
-class DailyDigest():
-    def __init__(self,granules_data):
-        self.all_granules = granules_data
-        self.all_digests = [i for i in granules_data if i['granuleClass'] == 'DAILYDIGEST']
-        self.today_digests = self.all_digests[2:]
-        
-    #def get_titles():
-    #def get_class():
-
-    def today_digest_text(self):
-        today_text = ''
-        for record in self.today_digests:
-            link = record['granuleLink']
-            dailyDigest_json = get_CREC_granuleInfo(link)
-            text_record = txt_download(dailyDigest_json)
-            today_text += text_record
-        return today_text
-    
-    def today_digest_df(self):
-        today_df = pd.DataFrame()
-        today_df['title'] = [i['title'] for i in self.today_digests]
-        content = []
-        for record in self.today_digests:
-            link = record['granuleLink']
-            dailyDigest_json = get_CREC_granuleInfo(link)
-            text_record = txt_download(dailyDigest_json)
-            content.append(text_record)
-        today_df['content'] = content
-        return today_df
-
 
 # # PROCESS DATATABLE
 
-# In[12]:
-
-
-# get packagelink list from CREC collection data
+# In[15]:
 collection_json = get_CREC_packages(10)
 collection_attr = list(collection_json[0].keys())
 packageLinks = [r['packageLink'] for r in collection_json]
-collection_df = pd.DataFrame(collection_json)[['packageId','dateIssued','title','lastModified']]
-    
-    
+collection_df = pd.DataFrame(collection_json)[['packageId', 'dateIssued', 'title', 'lastModified']]
+
 # get summary of each CERC record, in 1:1 relationship
 summary_data = [get_CREC_summary(packageLink) for packageLink in packageLinks]
 summary_attr = list(summary_data[0].keys())
 granulesLinks = [r['granulesLink'] for r in summary_data]
-record_info_df = pd.DataFrame(summary_data)[['packageId','detailsLink','pages','governmentAuthor1','category']]
-    
-    
+record_info_df = pd.DataFrame(summary_data)[['packageId', 'detailsLink', 'pages', 'governmentAuthor1', 'category']]
+
 # get granule contents of each CERC record, in 1:M relationship
-granules_relation = [(granulesLink,get_CREC_granules(granulesLink)[0],get_CREC_granules(granulesLink)[1]) 
-                    for granulesLink in granulesLinks]    
-granules_backward_mapping = dict([(r['granulesLink'],r['packageId']) for r in summary_data])
+granules_relation = [(granulesLink, get_CREC_granules(granulesLink)[0], get_CREC_granules(granulesLink)[1])
+                     for granulesLink in granulesLinks]
+granules_backward_mapping = dict([(r['granulesLink'], r['packageId']) for r in summary_data])
 names = globals()
 num_of_granules_table = 0
 names_of_granules_table = []
 for granules in granules_relation:
     gran_link = granules[0]
     pack_id = granules_backward_mapping[gran_link]
-    pack_id_formatted = pack_id.replace('-','')
-    names['granules_%s_df' % pack_id_formatted] = pd.DataFrame(granules[2])[['granuleId','title','granuleClass']]
+    pack_id_formatted = pack_id.replace('-', '')
+    names['granules_%s_df' % pack_id_formatted] = pd.DataFrame(granules[2])[['granuleId', 'title', 'granuleClass']]
     eval('granules_%s_df' % pack_id_formatted)['packageId'] = pack_id
-    names_of_granules_table.append('granules_%s_df' % pack_id)
+    names_of_granules_table.append('granules_%s_df' % pack_id_formatted)
     # return to table i: eval(names_of_granules_table[i])
     num_of_granules_table += 1
-granules_count_df=pd.DataFrame(granules_relation,columns = ['granulesLink','granulesCount','json_file'])[['granulesLink','granulesCount']]
-package_granule_df = pd.DataFrame.from_dict(granules_backward_mapping,orient = 'index',columns = ['packageId'])
-package_granule_df = package_granule_df.reset_index().rename(columns = {'index':'granulesLink'})
-    
-    
-# get daily digest today；all dayas + the latest day
-dailydigest_data = []
-for granules in granules_relation:
-    gran_link = granules[0]
-    pack_id = granules_backward_mapping[gran_link]
-    dailydigest_text = DailyDigest(granules[2]).today_digest_text()
-    dailydigest_data.append((pack_id,dailydigest_text))
-dailydigest_df = pd.DataFrame(dailydigest_data,columns = ['packageId','dailyDigest'])
-    
-gran_link_today = granules_relation[0][0]
-pack_id_today = granules_backward_mapping[gran_link_today]
-dailydigest_today_df = DailyDigest(granules_relation[0][2]).today_digest_df()
+granules_count_df = pd.DataFrame(granules_relation, columns=['granulesLink', 'granulesCount', 'json_file'])[
+    ['granulesLink', 'granulesCount']]
+package_granule_df = pd.DataFrame.from_dict(granules_backward_mapping, orient='index', columns=['packageId'])
+package_granule_df = package_granule_df.reset_index().rename(columns={'index': 'granulesLink'})
+
+# In[79]:
 
 
-# In[13]:
+
+# In[18]:
 
 
 # Join(merge) and get original datatables
@@ -201,61 +145,42 @@ CREC_summary = pd.merge(collection_df,record_info_df,on = 'packageId')
 CREC_summary['pages'] = CREC_summary.pages.astype('int64')
 CREC_granules =  pd.merge(pd.merge(collection_df,package_granule_df,on = 'packageId'),
                           granules_count_df,on = 'granulesLink')
-CREC_dailydigest = pd.merge(collection_df,dailydigest_df,on = 'packageId')
 
 
 # # DATA ANALYTICS
 
 # ## Analyze Daily Active Levels
 
-# In[14]:
+# In[70]:
 
 
 num_pages_df = CREC_summary.groupby('dateIssued').agg({'pages': np.sum})
 num_granules_df = CREC_granules.groupby('dateIssued').agg({'granulesCount': np.sum})
+num_pages_df['dateIssued'] = num_pages_df.index
+num_granules_df['dateIssued'] = num_pages_df.index
+
+
+# In[80]:
 
 
 # ## Analyze Titles of Daily Granules
 
 # #### Text Processing Functions
 
-# In[15]:
-
-
-# Basic text processing method using built-in functions
-def docParse(doclist):
-    doclist_parsed = []
-    for doc in doclist:
-        doclist_parsed.append(doc.split())
-    return doclist_parsed
-
-def wordCount(doclist_parsed):  # assume inputs are in a form of documentList(wordList())
-    word_ct = dict()
-    for wordlist in doclist_parsed:
-        for word in wordlist:
-            word = word.lower()
-            if word not in stopwords:    
-                if word not in list(word_ct.keys()):
-                    word_ct[word] = 1
-                else:
-                    word_ct[word] += 1
-    word_ct_sorted = sorted(word_ct.items(), key=lambda x:x[1],reverse=True)
-    return word_ct_sorted
-
-
-# In[16]:
+# In[112]:
 
 
 # Fancier text processing method using SpaCy
-def get_one_package(package_id):
+def get_one_package(package_id,granuleClass):
     #package_id = CREC_summary.packageId[i]
     granules_df = eval('granules_%s_df' % package_id.replace('-',''))
-    S_H_df = granules_df[(granules_df['granuleClass'] == 'SENATE')|(granules_df['granuleClass'] == 'HOUSE')]
+    #S_H_df = granules_df[(granules_df['granuleClass'] == 'SENATE')|(granules_df['granuleClass'] == 'HOUSE')]
+    S_H_df = granules_df[granules_df['granuleClass'] == str(granuleClass).upper()]
     S_H_titles = list(S_H_df.title)
-    titles_parsed = []
+    S_H_titles_parsed = []
     for title in S_H_titles:
-        titles_parsed.append(nlp(title))
-    return titles_parsed
+        S_H_titles_parsed.append(nlp(title))
+    return S_H_titles_parsed
 
 
 def get_parsed_titles(titles_parsed):
@@ -277,7 +202,7 @@ def get_parsed_titles(titles_parsed):
     return daily_tokens_pos_ent
 
 
-# In[17]:
+# In[108]:
 
 
 # Fancier text processing method using SpaCy (especially for analyzing titles as they're better formatted)
@@ -315,43 +240,93 @@ def wordFilter(doclist_parsed_spacy,pos_list,ent_list):
 
 # #### Text Processing & Formatting
 
-# In[18]:
+# In[226]:
 
 
-# Get concatenated text content of titles, filtered based on certain nouns, pos, and entity type 
-titles_filtered_agg = []
-for i in range(len(CREC_summary)):
-    parsed_titles = get_parsed_titles(
-        get_one_package(CREC_summary.packageId[i])
-    )
-    title_filtered_i = wordFilter(parsed_titles,important_pos,important_ents)
-    titles_filtered_agg.append(title_filtered_i)
-titles_filtered_agg  #len(titles_filtered_agg) = len(CREC_summary)
+# Format words in wordCount lists (for wordcloud presentation)
+def wc_formatted(count_filtered_agg):
+    count_filtered_agg_fmt = []
+    for record in count_filtered_agg:
+        count_filtered_agg_fmt.append([[i[0].capitalize(),i[1]] for i in record])
+    return count_filtered_agg_fmt
 
 
-# In[19]:
+# In[244]:
+
+
+# Normalize the text data
+def wc_percent(count_filtered_agg_fmt):
+    count_filtered_agg_pct = []
+    record_wc_sum = []
+
+    for record in count_filtered_agg_fmt:
+        count_sum = 0
+        for word in record:
+            count_sum += word[1]
+        record_wc_sum.append(count_sum)
+    
+        count_filtered_record_pct = []
+        for word in record:
+            word_pct = word[0]
+            wc_pct = round(word[1]/count_sum * 100,2)
+            count_filtered_record_pct.append([word_pct,wc_pct])
+        count_filtered_agg_pct.append(count_filtered_record_pct)
+        
+    return count_filtered_agg_pct
+
+
+# In[217]:
 
 
 # Get word count lists of titles, filtered based on certain nouns, pos, and entity type 
+count_filtered_agg_H = []
+count_filtered_agg_S = []
 count_filtered_agg = []
 for i in range(len(CREC_summary)):
-    parsed_titles = get_parsed_titles(
-        get_one_package(CREC_summary.packageId[i])
+    parsed_titles_H = get_parsed_titles(
+        get_one_package(CREC_summary.packageId[i],'house')
     )
-    count_filtered_i = wordCount_pro(parsed_titles,important_pos,important_ents)
-    count_filtered_i = [list(i) for i in count_filtered_i]
-    count_filtered_agg.append(count_filtered_i)
-count_filtered_agg   #len(count_filtered_agg) = len(CREC_summary), but len(count_filtered_agg[i]) differs across different i
+    parsed_titles_S = get_parsed_titles(
+        get_one_package(CREC_summary.packageId[i],'senate')
+    )
+    parsed_titles_H_S = parsed_titles_H.copy()
+    parsed_titles_H_S.extend(parsed_titles_S)
+    
+    count_filtered_i_H = wordCount_pro(parsed_titles_H,important_pos,important_ents)
+    count_filtered_i_S = wordCount_pro(parsed_titles_S,important_pos,important_ents)
+    count_filtered_i_H_S = wordCount_pro(parsed_titles_H_S,important_pos,important_ents)
+       
+    count_filtered_i_H = [list(i) for i in count_filtered_i_H]
+    count_filtered_i_S = [list(i) for i in count_filtered_i_S]
+    count_filtered_i_H_S = [list(i) for i in count_filtered_i_H_S]
+
+    count_filtered_agg_H.append(count_filtered_i_H)
+    count_filtered_agg_S.append(count_filtered_i_S)
+    count_filtered_agg.append(count_filtered_i_H_S)
+#count_filtered_agg_H   #len(count_filtered_agg) = len(CREC_summary), but len(count_filtered_agg[i]) differs across different i
+#count_filtered_agg_S
+#count_filtered_agg
 
 
-# In[20]:
+# In[245]:
+
+
+count_filtered_agg_formatted = wc_formatted(count_filtered_agg)
+count_filtered_agg_pct = wc_percent(count_filtered_agg_formatted)
+
+count_filtered_agg_H_formatted = wc_formatted(count_filtered_agg_H)
+count_filtered_agg_H_pct = wc_percent(count_filtered_agg_H_formatted)
+
+count_filtered_agg_S_formatted = wc_formatted(count_filtered_agg_S)
+count_filtered_agg_S_pct = wc_percent(count_filtered_agg_S_formatted)
+
+
+# In[326]:
 
 
 # Build new datatable joining concatenated titles and wordCount list, with packageId as PK
-titles_filtered_df = pd.DataFrame(zip(CREC_summary.packageId,CREC_summary.dateIssued,titles_filtered_agg,count_filtered_agg),columns = ['packageId','dateIssued','granuleTitles_filtered_agg','wordCount_filtered'])
-
-# Group concatenated filtered titles by date
-date_titles_filtered_df = titles_filtered_df.groupby('dateIssued').agg({'granuleTitles_filtered_agg': np.sum}) 
+titles_filtered_df = pd.DataFrame(zip(CREC_summary.packageId,CREC_summary.dateIssued,count_filtered_agg,count_filtered_agg_formatted,count_filtered_agg_pct,count_filtered_agg_H_formatted,count_filtered_agg_H_pct,count_filtered_agg_S_formatted,count_filtered_agg_S_pct),
+                                  columns = ['packageId','dateIssued','wordCount_filtered','wordCount_filtered_formatted','wordCount_filtered_formatted_pct','wordCount_filtered_H_formatted','wordCount_filtered_H_formatted_pct','wordCount_filtered_S_formatted','wordCount_filtered_S_formatted_pct'])
 
 # Group word count lists of titles by date
 date_filtered_wc = []
@@ -359,200 +334,289 @@ date_idx_ls = [list(titles_filtered_df.dateIssued).index(x) for x in set(list(ti
 for i in date_idx_ls:
     date_i = titles_filtered_df['dateIssued'][i]
     id_i = titles_filtered_df['packageId'][i]
-    wc_i = titles_filtered_df['wordCount_filtered'][i]
+    wc_fmt_i = titles_filtered_df['wordCount_filtered_formatted'][i]
+    wc_fmt_pct_i = titles_filtered_df['wordCount_filtered_formatted_pct'][i]
+    wc_H_fmt_i = titles_filtered_df['wordCount_filtered_H_formatted'][i]
+    wc_H_fmt_pct_i = titles_filtered_df['wordCount_filtered_H_formatted_pct'][i]
+    wc_S_fmt_i = titles_filtered_df['wordCount_filtered_S_formatted'][i]
+    wc_S_fmt_pct_i = titles_filtered_df['wordCount_filtered_S_formatted_pct'][i]
     for j in range(len(titles_filtered_df)):
         date_j = titles_filtered_df['dateIssued'][j]
         id_j = titles_filtered_df['packageId'][j]
-        wc_j = titles_filtered_df['wordCount_filtered'][j]
+        wc_fmt_j = titles_filtered_df['wordCount_filtered_formatted'][j]
+        wc_fmt_pct_j = titles_filtered_df['wordCount_filtered_formatted_pct'][j]
+        wc_H_fmt_j = titles_filtered_df['wordCount_filtered_H_formatted'][j]
+        wc_H_fmt_pct_j = titles_filtered_df['wordCount_filtered_H_formatted_pct'][j]
+        wc_S_fmt_j = titles_filtered_df['wordCount_filtered_S_formatted'][j]
+        wc_S_fmt_pct_j = titles_filtered_df['wordCount_filtered_S_formatted_pct'][j]
         if id_j != id_i and date_j == date_i:
-            wc_i.extend(wc_j)
-    date_filtered_wc.append((date_i,wc_i))
+            wc_fmt_i.extend(wc_fmt_j)
+            wc_fmt_pct_i.extend(wc_fmt_pct_j)
+            wc_H_fmt_i.extend(wc_H_fmt_j)
+            wc_H_fmt_pct_i.extend(wc_H_fmt_pct_j)
+            wc_S_fmt_i.extend(wc_S_fmt_j)
+            wc_S_fmt_pct_i.extend(wc_S_fmt_pct_j)
+    date_filtered_wc.append((date_i,wc_fmt_i,wc_fmt_pct_i,wc_H_fmt_i,wc_H_fmt_pct_i,wc_S_fmt_i,wc_S_fmt_pct_i))
         
-date_wcount_filtered_raw_df = pd.DataFrame(date_filtered_wc,columns = ['dateIssued','wordCount_filtered'])
-date_wcount_filtered_raw_df['dateIssued'] = pd.to_datetime(date_wcount_filtered_raw_df['dateIssued']).dt.date
-date_wcount_filtered_df = date_wcount_filtered_raw_df.sort_values(by = 'dateIssued',ascending=False) 
-date_wcount_filtered_df = date_wcount_filtered_df.reset_index(drop = True)
+date_wcount_filtered_df = pd.DataFrame(date_filtered_wc,columns = ['dateIssued','wordCount_filtered_formatted','wordCount_filtered_formatted_pct','wordCount_filtered_H_formatted','wordCount_filtered_H_formatted_pct','wordCount_filtered_S_formatted','wordCount_filtered_S_formatted_pct'])
+date_wcount_filtered_df['dateIssued'] = pd.to_datetime(date_wcount_filtered_df['dateIssued'])
+date_wcount_filtered_df = date_wcount_filtered_df.sort_values(by = 'dateIssued',ascending=False) 
 
 
-# In[21]:
+# In[334]:
 
 
-# Format words in wordCount lists (for wordcloud presentation)
-wc_filtered_formatted = []
-for j in range(len(date_wcount_filtered_df)):
-    wc_filtered_formatted.append([[i[0].capitalize(),i[1]] for i in date_wcount_filtered_df['wordCount_filtered'][j]])
-date_wcount_filtered_df['wordCount_filtered_formatted'] = wc_filtered_formatted
-date_wcount_filtered_df
+date_wcount_filtered_df['dateIssued'] = pd.to_datetime(date_wcount_filtered_df['dateIssued']).dt.date
+date_wcount_filtered_sorted_df = date_wcount_filtered_df.sort_values(by = 'dateIssued',ascending=False)
+date_wcount_filtered_sorted_df = date_wcount_filtered_sorted_df.reset_index(drop = True)
+date_wcount_filtered_sorted_df['dateIssued'] = date_wcount_filtered_sorted_df.dateIssued.astype(str)
+date_wcount_filtered_sorted_df
 
 
-# In[22]:
+# #### Plotting
+
+# In[359]:
 
 
-# [!DEPRECATED] Word counting based on concatenated filtered titles
-date_titles_filtered = date_titles_filtered_df.granuleTitles_filtered_agg
-date_titles_filtered_df
-
-titles_filtered_ct_agg = []
-title_filtered_ct = dict()
-for title in date_titles_filtered:
-    for word in title.split():
-        if word not in list(title_filtered_ct.keys()):
-            title_filtered_ct[word] = 1
-        else:
-            title_filtered_ct[word] += 1
-    title_filtered_ct_sorted = sorted(title_filtered_ct.items(), key=lambda x:x[1],reverse=True)
-    title_filtered_ct_sorted = [list(i) for i in title_filtered_ct_sorted]
-    titles_filtered_ct_agg.append(title_filtered_ct_sorted)
-
-#date_titles_filtered_df['wordCount_filtered_agg'] = titles_filtered_ct_agg
+def get_lemma_count(wc_records,date,num_top_lemmas_to_plot):
+    idx = date_wcount_filtered_sorted_df[date_wcount_filtered_sorted_df['dateIssued']==date].index[0]
+    wc_record = wc_records[idx]
+    top_lemmas = []
+    top_counts = []
+    for r in wc_record[:num_top_lemmas_to_plot]:
+        top_lemmas.append(r[0])
+        top_counts.append(r[1])
+    return top_lemmas,top_counts
+#top_lemmas,top_counts = get_lemma_count(date_wcount_filtered_sorted_df['wordCount_filtered_formatted'],'2023-01-17',20)
 
 
-# ### Analyze titles of daily digest
-
-# #### Text Processing Functions
-
-# In[23]:
+# In[353]:
 
 
-def dailyDigest_processing(dailydigest_record): #remove headlines and space, return pure texts
-    raw_lines = dailydigest_record.split('\n')
-    processed_text = ''
-    noise_pattern = re.compile('(.*)\[(.+)\](.*)')
-    for i in raw_lines:
-        if i != '' and noise_pattern.match(i) is None:
-            #processed_lines.append(i)
-            processed_text += i
-    return processed_text
+def get_count_S_H(wc_record_S_H, date, all_top_lemmas):
+    idx = date_wcount_filtered_sorted_df[date_wcount_filtered_sorted_df['dateIssued'] == date].index[0]
+    wc_record_S_H = wc_record_S_H[idx]
+    counts_S_H = np.zeros(len(all_top_lemmas))
+    for i in range(len(all_top_lemmas)):
+        top_lemma = all_top_lemmas[i]
+        for r in wc_record_S_H:
+            lemma, count = r[0], r[1]
+            if lemma == top_lemma:
+                counts_S_H[i] = count
 
+    return list(counts_S_H)
 
-# #### Text Processing & Formatting
-
-# In[24]:
-
-
-# Join(merge) a new datateble with pure text daily digest, using packageId as PK [not grouped by days]
-dailyDigest_processed = []
-for i in CREC_dailydigest.dailyDigest:
-    dailyDigest_processed.append(dailyDigest_processing(i))
-CREC_dailydigest['dailyDigest_processed'] = dailyDigest_processed
-CREC_dailydigest
-
-
-# In[25]:
-
-
-# Format dailydigest_today table (only include daily digests for the latest date)
-dailydigest_today_df['title_processed'] = [re.sub('Daily Digest/','',i) for i in dailydigest_today_df.title ]
-dailydigest_today_df['content_processed'] = [re.sub('(.*)\[(.+)\](.*)','',i) for i in dailydigest_today_df.content]
-dailydigest_today_df['content_processed'] = [re.sub(r'\n\n\n','',i) for i in dailydigest_today_df.content_processed]
-dailydigest_today_df['content_processed'] = [i.strip() for i in dailydigest_today_df.content_processed]
-dailydigest_today_df
-
-
-# In[825]:
-
-
-# Future ideas: topic model → analyze contents?
+#top_counts_H = get_count_S_H(date_wcount_filtered_sorted_df['wordCount_filtered_H_formatted'],'2023-01-17',top_lemmas)
+#top_counts_S = get_count_S_H(date_wcount_filtered_sorted_df['wordCount_filtered_S_formatted'],'2023-01-17',top_lemmas)
 
 
 # # DEPLOYMENT
 
-# In[26]:
+# In[423]:
 
 
-app = dash.Dash(__name__)
-server = app.server
+app = dash.Dash(external_stylesheets=[dbc.themes.SKETCHY])
+
+
+# In[455]:
+
 
 app.layout = html.Div([
     html.Div([
-    html.H1('Congressional Records Daily Briefing'),
-    html.P('Congressional Record Tracking Dashboard: Help to identifying emerging political directions based on CREC data from govInfo.api.')
-    ],style={'width': '100%',  'display': 'inline-block'}),
-    
+        html.H1('Congressional Records Daily Briefing'),
+        html.Div(children=[
+            # html.H3('More details information can refer to daily digest in '),
+            html.P(
+                'Congressional record tracking dashboard helps to show emerging political potentials based on CREC data from GovInfo API. You can also check out the daily digests released by the congress record.',
+                style={'fontSize': '24px'}),
+            html.A(href="https://www.congress.gov/congressional-record",
+                   children=[html.Button('Latest Daily Digest', className="btn btn-primary disabled")],
+                   style={'float': 'right', 'margin-right': '50px', 'margin-top': '0px', 'margin-bottom': '20px',
+                          'display': 'inline-block'}),
+        ], style={'float': 'left', 'display': 'inline-block'}),
+    ]),
+
     html.Div([
-        html.H2('Daily Digest'),
-        html.H4(dailydigest_today_df['title_processed'][0]),
-        html.P(dailydigest_today_df['content_processed'][0]),
-        html.H4(dailydigest_today_df['title_processed'][1]),
-        html.P(dailydigest_today_df['content_processed'][1]),
-        html.H4(dailydigest_today_df['title_processed'][2]),
-        html.P(dailydigest_today_df['content_processed'][2]),
-        html.H4(dailydigest_today_df['title_processed'][3]),
-        html.P(dailydigest_today_df['content_processed'][3]),
-    ], style={'width': '30%', 'whiteSpace': 'pre-wrap', 'display': 'inline-block'}),      
-    
-    html.Div([
-        html.H2("How active the Congress has been?"),
-        dcc.Graph(
-            figure={
-                "data": [
-                    {
-                        "x": CREC_summary['dateIssued'],
-                        "y": num_granules_df['granulesCount'],
-                        "type": "bar",
-                    },
-                ],
-                "layout": {"title": 'Number of Record Granules per Day'},
-            },
+        html.H2('Top words in Senate and House', className='card-header'),
+        html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        html.P("Issued date", style={'fontSize': '18px'}, className='card-text'),
+                        dcc.Dropdown(
+                            id="date-filter",
+                            options=[
+                                {"label": date, "value": date}
+                                for date in date_wcount_filtered_sorted_df.dateIssued
+                            ],
+                            value=date_wcount_filtered_sorted_df.dateIssued[0],
+                            clearable=False,
+                            className="form-label mt-4",
+                        ),
+                    ]),
+                dcc.Graph(
+                    id="word-freq-comparison-chart", config={"displayModeBar": False},
+                ),
+            ], className='card-body'
         ),
-        dcc.Graph(
-            figure={
-                "data": [
-                    {
-                        "x": CREC_summary['dateIssued'],
-                        "y": num_pages_df['pages'],
-                        "type": "bar",
-                    },
-                ],
-                "layout": {"title": 'Number of Record Pages per Day'},
-            },
-        )
-    ], style={'width': '40%','float': 'left', 'display': 'inline-block'}),
-    
+        # html.H5('Recent top words in granules discussed in Senate and House in different days'),
+    ], className="card border-primary mb-3",
+        style={'width': '93%',
+               'float': 'left',
+               'margin-left': '50px',
+               'display': 'inline-block',
+               }),  # style={'width': '60%', 'whiteSpace': 'pre-wrap', 'display': 'inline-block'}
+
+    html.Div(
+        children=[
+            html.H2("What's discussed by the House and Senate?", className='card-header'),
+            html.Div(
+                children=[
+                    html.Div(children=[
+                        html.H5(['Word Cloud of ', date_wcount_filtered_sorted_df['dateIssued'][0]]),
+                        DashWordcloud(
+                            id='wordcloud1',
+                            list=date_wcount_filtered_sorted_df.wordCount_filtered_formatted_pct[0],
+                            width=350, height=350,
+                            # color = 'random-dark',
+                            # backgroundColor='#F5F5F5', #'#001f00'
+                            weightFactor=10,
+                            shuffle=False,
+                            rotateRatio=0.5,
+                            shrinkToFit=True,
+                            hover=True
+                        )], style={'width': '30%', 'textAlign': 'center', 'float': 'left', 'display': 'inline-block'}
+                    ),
+                    html.Div(children=[
+                        html.H5(['Word Cloud of ', date_wcount_filtered_sorted_df['dateIssued'][1]]),
+                        DashWordcloud(
+                            id='wordcloud2',
+                            list=date_wcount_filtered_sorted_df.wordCount_filtered_formatted_pct[1],
+                            width=350, height=350,
+                            # color = 'random-dark',
+                            # backgroundColor='#F5F5F5', #'#001f00'
+                            weightFactor=10,
+                            shuffle=False,
+                            rotateRatio=0.5,
+                            shrinkToFit=True,
+                            hover=True
+                        )],
+                        style={'width': '30%', 'textAlign': 'center', 'margin-left': '60px', 'display': 'inline-block'}
+                    ),
+                    html.Div(children=[
+                        html.H5(['Word Cloud of ', date_wcount_filtered_sorted_df['dateIssued'][2]]),
+                        DashWordcloud(
+                            id='wordcloud3',
+                            list=date_wcount_filtered_sorted_df.wordCount_filtered_formatted_pct[2],
+                            width=350, height=350,
+                            # color = 'random-dark',
+                            # backgroundColor='#F5F5F5', #'#001f00'
+                            weightFactor=10,
+                            shuffle=False,
+                            rotateRatio=0.5,
+                            shrinkToFit=True,
+                            hover=True
+                        )], style={'width': '30%', 'textAlign': 'center', 'float': 'right', 'display': 'inline-block'}
+                    ),
+                    html.P('* Notice: word clouds above are generated based on a relative term', className='lead'),
+                ], className='card-body'
+            ),
+        ], className="card border-primary mb-3",
+        style={'width': '93%',
+               'float': 'left',
+               'margin-left': '50px',
+               'margin-right': '50px',
+               'display': 'inline-block',
+               }),  # style={'width': '100%', 'display': 'inline-block'}
+
     html.Div([
-        html.H2("What's discussed by the House and Senate?"),
-        #html.Img(id="image_wc"),
-        html.P(['From CREC of ',date_wcount_filtered_df['dateIssued'][0].strftime('%D'),': ' ]),
-        DashWordcloud(
-            id='wc_1',
-            list=date_wcount_filtered_df['wordCount_filtered_formatted'][0],
-            width=350, height=350,
-            #color = 'random-dark',
-            backgroundColor='#F5F5F5', #'#001f00'
-            weightFactor = 10,
-            shuffle=False,
-            rotateRatio=0.5,
-            shrinkToFit=True,
-            hover=True
-            ),
-        html.P(['From CREC of ',date_wcount_filtered_df['dateIssued'][1].strftime('%D'),': '  ]),
-        DashWordcloud(
-            id='wc_2',
-            list=date_wcount_filtered_df['wordCount_filtered_formatted'][1],
-            width=350, height=350,
-            gridSize=10,
-            #color='random-dark',
-            backgroundColor='#F5F5F5', #'#001f00'
-            weightFactor = 10,
-            shuffle=False,
-            rotateRatio=0.5,
-            shrinkToFit=True,
-            hover=True
-            ),
-    ], style={'width': '30%', 'float': 'left', 'display': 'inline-block'}),
+        html.H2("How active the Congress has been?", className='card-header'),
+        html.Div(
+            children=[
+                html.Div(
+                    children=[
+                        html.P("Index type", style={'fontSize': '18px'}, className='card-text'),
+                        dcc.Dropdown(
+                            id="activity-type-filter",
+                            options=[
+                                {"label": activity_type, "value": activity_type}
+                                for activity_type in ['Record Granules', 'Record Pages']
+                            ],
+                            value="Record Granules",
+                            clearable=False,
+                            className="form-label mt-4",
+                        ),
+                    ]),
+                dcc.Graph(
+                    id="activity-chart", config={"displayModeBar": False}
+                ),
+                # html.H5('Different indexes help to identify the active level of congress in recent days'),
+            ], className='card-body'
+        ),
+    ], className="card border-primary mb-3",
+        style={'width': '93%',
+               'float': 'left',
+               'margin-left': '50px',
+               'display': 'inline-block',
+               }),  # style={'width': '40%','display': 'inline-block'}
+
+],
+)
 
 
-])
+# In[458]:
+@app.callback(
+    [Output("word-freq-comparison-chart", "figure"), Output("activity-chart", "figure")],
+    [Input("date-filter", "value"), Input("activity-type-filter", "value"), ],
+)
+def update_charts(date, activity_type):
+    top_lemmas = get_lemma_count(date_wcount_filtered_sorted_df['wordCount_filtered_formatted'], date, 20)[0]
+    wordfreq_comparison_chart = {
+        "data": [
+            {
+                "x": top_lemmas,
+                "y": get_count_S_H(date_wcount_filtered_sorted_df['wordCount_filtered_H_formatted'], date, top_lemmas),
+                "type": "bar", 'name': 'House'
+            },
+            {
+                "x": top_lemmas,
+                "y": get_count_S_H(date_wcount_filtered_sorted_df['wordCount_filtered_S_formatted'], date, top_lemmas),
+                "type": "bar", 'name': 'Senate'
+            },
+        ],
+        "layout": {"title": 'Senate vs House: Top words distibution pattern'},
+    }
 
+    if activity_type == 'Record Granules':
+        activity_chart = {
+            "data": [
+                {
+                    "x": num_granules_df['dateIssued'],
+                    "y": num_granules_df['granulesCount'],
+                    "type": "bar",
+                },
+            ],
+            "layout": {"title": 'Number of Record Granules per Day'},
+        }
+    else:
+        activity_chart = {
+            "data": [
+                {
+                    "x": num_pages_df['dateIssued'],
+                    "y": num_pages_df['pages'],
+                    "type": "bar",
+                },
+            ],
+            "layout": {"title": 'Number of Record Pages per Day'},
+        }
 
-# In[27]:
+    return wordfreq_comparison_chart, activity_chart
+
+# In[459]:
 
 
 if __name__ == '__main__':
     app.run_server(debug=True)
-
-
-# In[ ]:
 
 
 
