@@ -414,9 +414,8 @@ def get_count_S_H(wc_record_S_H, date, all_top_lemmas):
 
 # In[423]:
 
-
 app = dash.Dash(external_stylesheets=[dbc.themes.SKETCHY])
-
+server = app.server
 
 # In[455]:
 
