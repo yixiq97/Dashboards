@@ -90,11 +90,11 @@ server = app.server
 
 app.layout = html.Div([
     html.Div([
-        html.H1('Congressional Records Daily Briefing', style={'fontSize': '36px','margin-top': '20px', 'margin-bottom': '20px', }),
+        html.H1('Congressional Records Daily Briefing', style={'fontSize': '40px','margin-top': '20px', 'margin-bottom': '20px', }),
         html.Div(children=[
             # html.H3('More details information can refer to daily digest in '),
             html.P(
-                'Congressional record daily briefing dashboard shows emerging political potentials by analyzing titles of the House and Senate documents requested from GovInfo API. People can also check out the daily digests released by the congress record to know additional information.',
+                'Congressional record daily briefing dashboard shows emerging political topics by analyzing titles of the House and Senate documents requested from GovInfo API. People can also check out the daily digests released by the congress records to know additional information.',
                 style={'fontSize': '24px'}),
             html.A(href="https://www.congress.gov/congressional-record",
                    children=[html.Button('Latest Daily Digest', className="btn btn-warning")],
@@ -128,7 +128,7 @@ app.layout = html.Div([
                     html.P('Daily Word Cloud'),
                     html.Img(id='wordcloud-img', src=wordcloud_src, style={'width': '100%'}),
                     # "data:image/png;base64,"
-                ], style={'width': '40%', 'textAlign': 'center', 'float': 'left', 'display': 'inline-block'}),
+                ], style={'width': '40%', 'textAlign': 'center', 'margin-bottom': '50px', 'float': 'left', 'display': 'inline-block'}),
                 html.Div([
                     html.P('Daily Document Titles'),
                     dash_table.DataTable(
@@ -166,7 +166,7 @@ app.layout = html.Div([
                         tooltip_duration=None,
                     ),
                 ], style={'width': '55%', 'textAlign': 'center', 'float': 'right', 'display': 'inline-block'}),
-            ], )
+            ])
         ], className='card-body'
         ),
     ], className="card border-primary mb-3",
@@ -253,7 +253,17 @@ app.layout = html.Div([
                'float': 'left',
                'margin-left': '50px',
                'display': 'inline-block',
-               }),  # style={'width': '40%','display': 'inline-block'}
+               }), 
+    
+    html.Div([
+        html.P(['Document titles rather than main body texts are intendedly selected to be the unit of analysis as they are better formatted and more likely to cover the keywords. ',
+                'Text processing techniques used mainly includes POS (part-of-speech) and entity type match, and no additional stopwords are added to the word processing filter.']
+               ,className='lead',style={'font-style': 'italic','fontSize': '22px'})
+    ], style={'margin-top': '50px',
+              'margin-left': '20px',
+              'margin-right': '20px',
+              'display': 'inline-block',
+              }),
 
 ],
 )
