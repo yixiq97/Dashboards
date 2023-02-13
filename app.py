@@ -81,7 +81,7 @@ wordcloud_src = get_wordcloud(H_S_df,date_ls[0])
 # In[17]:
 
 
-app = dash.Dash(external_stylesheets=[dbc.themes.SKETCHY])
+app = dash.Dash(external_stylesheets=[dbc.themes.PULSE])
 server = app.server
 
 
@@ -90,20 +90,19 @@ server = app.server
 
 app.layout = html.Div([
     html.Div([
-        html.H1('Congressional Records Daily Briefing', style={'fontSize': '40px','margin-top': '20px', 'margin-bottom': '20px', }),
-        html.Div(children=[
-            # html.H3('More details information can refer to daily digest in '),
+        html.Div([
+            html.H1('Congressional Records Daily Briefing',style={'fontSize':36,'color':'white','textAlign': 'center',"font-weight": "bold",'margin-left': '20px'}),
+        ],className = 'navbar navbar-expand-lg navbar-dark bg-primary'),        
+        html.Div([
             html.P(
                 'Congressional record daily briefing dashboard shows emerging political topics by analyzing titles of the House and Senate documents requested from GovInfo API. People can also check out the daily digests released by the congress records to know additional information.',
-                style={'fontSize': '24px'}),
+                style={'fontSize': '24px','margin-top': '20px','margin-left': '20px','margin-right': '20px'}),
             html.A(href="https://www.congress.gov/congressional-record",
-                   children=[html.Button('Latest Daily Digest', className="btn btn-warning")],
+                   children=[html.Button('Latest Daily Digest', className="btn btn-dark")],
                    style={'float': 'right', 'margin-right': '50px', 'margin-top': '0px', 'margin-bottom': '20px',
                           'display': 'inline-block'}),
         ], style={'float': 'left', 'display': 'inline-block'}),
     ], style={#'width': '95%',
-              'margin-left': '20px',
-              'margin-right': '20px',
               'display': 'inline-block',
               }),
 
@@ -169,7 +168,7 @@ app.layout = html.Div([
             ])
         ], className='card-body'
         ),
-    ], className="card border-primary mb-3",
+    ], className="card border-dark mb-3",
         style={'width': '93%',
                'float': 'left',
                'margin-left': '50px',
@@ -218,7 +217,7 @@ app.layout = html.Div([
             ]),
         ], className='card-body'
         ),
-    ], className="card border-primary mb-3",
+    ], className="card border-dark mb-3",
         style={'width': '93%',
                'float': 'left',
                'margin-left': '50px',
@@ -248,7 +247,7 @@ app.layout = html.Div([
                 ),
             ], className='card-body'
         ),
-    ], className="card border-primary mb-3",
+    ], className="card border-dark mb-3",
         style={'width': '93%',
                'float': 'left',
                'margin-left': '50px',
@@ -258,8 +257,8 @@ app.layout = html.Div([
     html.Div([
         html.P(['Document titles rather than main body texts are intendedly selected to be the unit of analysis as they are better formatted and more likely to cover the keywords. ',
                 'Text processing techniques used mainly includes POS (part-of-speech) and entity type match, and no additional stopwords are added to the word processing filter.']
-               ,className='lead',style={'font-style': 'italic','fontSize': '22px'})
-    ], style={'margin-top': '50px',
+               ,className='text-muted',style={'font-style': 'italic','fontSize': '18px'})#
+    ], style={'margin-top': '20px',
               'margin-left': '20px',
               'margin-right': '20px',
               'display': 'inline-block',
